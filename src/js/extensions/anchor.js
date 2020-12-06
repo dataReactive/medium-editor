@@ -110,8 +110,8 @@
                 // figure out how to deprecate? also consider `fa-` icon default implcations.
                 template.push(
                     '<div class="medium-editor-toolbar-form-row">',
-                    '<input type="checkbox" class="medium-editor-toolbar-anchor-target">',
-                    '<label>',
+                    '<input type="checkbox" class="medium-editor-toolbar-anchor-target" id="medium-editor-toolbar-anchor-target-field-' + this.getEditorId() + '">',
+                    '<label for="medium-editor-toolbar-anchor-target-field-' + this.getEditorId() + '">',
                     this.targetCheckboxText,
                     '</label>',
                     '</div>'
@@ -123,8 +123,8 @@
                 // and provide similar access to a `fa-` icon default.
                 template.push(
                     '<div class="medium-editor-toolbar-form-row">',
-                    '<input type="checkbox" class="medium-editor-toolbar-anchor-button">',
-                    '<label>',
+                    '<input type="checkbox" class="medium-editor-toolbar-anchor-button" id="medium-editor-toolbar-anchor-button-field-' + this.getEditorId() + '">',
+                    '<label for="medium-editor-toolbar-anchor-button-field-' + this.getEditorId() + '">',
                     this.customClassOptionText,
                     '</label>',
                     '</div>'
@@ -150,12 +150,12 @@
                 targetCheckbox = this.getAnchorTargetCheckbox(),
                 buttonCheckbox = this.getAnchorButtonCheckbox();
 
-            opts = opts || { url: '' };
+            opts = opts || { value: '' };
             // TODO: This is for backwards compatability
             // We don't need to support the 'string' argument in 6.0.0
             if (typeof opts === 'string') {
                 opts = {
-                    url: opts
+                    value: opts
                 };
             }
 
@@ -164,7 +164,7 @@
             MediumEditor.extensions.form.prototype.showForm.apply(this);
             this.setToolbarPosition();
 
-            input.value = opts.url;
+            input.value = opts.value;
             input.focus();
 
             // If we have a target checkbox, we want it to be checked/unchecked
@@ -201,11 +201,11 @@
             var targetCheckbox = this.getAnchorTargetCheckbox(),
                 buttonCheckbox = this.getAnchorButtonCheckbox(),
                 opts = {
-                    url: this.getInput().value.trim()
+                    value: this.getInput().value.trim()
                 };
 
             if (this.linkValidation) {
-                opts.url = this.checkLinkFormat(opts.url);
+                opts.value = this.checkLinkFormat(opts.value);
             }
 
             opts.target = '_self';
@@ -231,19 +231,61 @@
             this.base.checkSelection();
         },
 
+        ensureEncodedUri: function (str) {
+            return str === decodeURI(str) ? encodeURI(str) : str;
+        },
+
+        ensureEncodedUriComponent: function (str) {
+            return str === decodeURIComponent(str) ? encodeURIComponent(str) : str;
+        },
+
+        ensureEncodedParam: function (param) {
+            var split = param.split('='),
+                key = split[0],
+                val = split[1];
+
+            return key + (val === undefined ? '' : '=' + this.ensureEncodedUriComponent(val));
+        },
+
+        ensureEncodedQuery: function (queryString) {
+            return queryString.split('&').map(this.ensureEncodedParam.bind(this)).join('&');
+        },
+
         checkLinkFormat: function (value) {
             // Matches any alphabetical characters followed by ://
             // Matches protocol relative "//"
             // Matches common external protocols "mailto:" "tel:" "maps:"
-            var urlSchemeRegex = /^([a-z]+:)?\/\/|^(mailto|tel|maps):/i,
-            // var te is a regex for checking if the string is a telephone number
-            telRegex = /^\+?\s?\(?(?:\d\s?\-?\)?){3,20}$/;
+            // Matches relative hash link, begins with "#"
+            var urlSchemeRegex = /^([a-z]+:)?\/\/|^(mailto|tel|maps):|^\#/i,
+                hasScheme = urlSchemeRegex.test(value),
+                scheme = '',
+                // telRegex is a regex for checking if the string is a telephone number
+                telRegex = /^\+?\s?\(?(?:\d\s?\-?\)?){3,20}$/,
+                urlParts = value.match(/^(.*?)(?:\?(.*?))?(?:#(.*))?$/),
+                path = urlParts[1],
+                query = urlParts[2],
+                fragment = urlParts[3];
+
             if (telRegex.test(value)) {
                 return 'tel:' + value;
-            } else {
-                // Check for URL scheme and default to http:// if none found
-                return (urlSchemeRegex.test(value) ? '' : 'http://') + value;
             }
+
+            if (!hasScheme) {
+                var host = path.split('/')[0];
+                // if the host part of the path looks like a hostname
+                if (host.match(/.+(\.|:).+/) || host === 'localhost') {
+                    scheme = 'http://';
+                }
+            }
+
+            return scheme +
+                // Ensure path is encoded
+                this.ensureEncodedUri(path) +
+                // Ensure query is encoded
+                (query === undefined ? '' : '?' + this.ensureEncodedQuery(query)) +
+                // Include fragment unencoded as encodeUriComponent is too
+                // heavy handed for the many characters allowed in a fragment
+                (fragment === undefined ? '' : '#' + fragment);
         },
 
         doFormCancel: function () {

@@ -49,6 +49,7 @@
         isMac: (window.navigator.platform.toUpperCase().indexOf('MAC') >= 0),
 
         // https://github.com/jashkenas/underscore
+        // Lonely letter MUST USE the uppercase code
         keyCode: {
             BACKSPACE: 8,
             TAB: 9,
@@ -57,7 +58,8 @@
             SPACE: 32,
             DELETE: 46,
             K: 75, // K keycode, and not k
-            M: 77
+            M: 77,
+            V: 86
         },
 
         /**
@@ -136,6 +138,9 @@
             Util.moveTextRangeIntoElement(textNodes[0], textNodes[textNodes.length - 1], anchor);
             anchor.setAttribute('href', href);
             if (target) {
+                if (target === '_blank') {
+                    anchor.setAttribute('rel', 'noopener noreferrer');
+                }
                 anchor.setAttribute('target', target);
             }
             return anchor;
@@ -221,11 +226,10 @@
         splitEndNodeIfNeeded: function (currentNode, newNode, matchEndIndex, currentTextIndex) {
             var textIndexOfEndOfFarthestNode,
                 endSplitPoint;
-            textIndexOfEndOfFarthestNode = currentTextIndex + (newNode || currentNode).nodeValue.length +
-                    (newNode ? currentNode.nodeValue.length : 0) -
-                    1;
-            endSplitPoint = (newNode || currentNode).nodeValue.length -
-                    (textIndexOfEndOfFarthestNode + 1 - matchEndIndex);
+            textIndexOfEndOfFarthestNode = currentTextIndex + currentNode.nodeValue.length +
+                    (newNode ? newNode.nodeValue.length : 0) - 1;
+            endSplitPoint = matchEndIndex - currentTextIndex -
+                    (newNode ? currentNode.nodeValue.length : 0);
             if (textIndexOfEndOfFarthestNode >= matchEndIndex &&
                     currentTextIndex !== textIndexOfEndOfFarthestNode &&
                     endSplitPoint !== 0) {
@@ -492,8 +496,7 @@
                     range = range.cloneRange();
                     range.setStartAfter(lastNode);
                     range.collapse(true);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
+                    MediumEditor.selection.selectRange(doc, range);
                 }
                 res = true;
             }
@@ -583,12 +586,14 @@
             var i, url = anchorUrl || false;
             if (el.nodeName.toLowerCase() === 'a') {
                 el.target = '_blank';
+                el.rel = 'noopener noreferrer';
             } else {
                 el = el.getElementsByTagName('a');
 
                 for (i = 0; i < el.length; i += 1) {
                     if (false === url || url === el[i].attributes.href.value) {
                         el[i].target = '_blank';
+                        el[i].rel = 'noopener noreferrer';
                     }
                 }
             }
@@ -602,17 +607,24 @@
             var i;
             if (el.nodeName.toLowerCase() === 'a') {
                 el.removeAttribute('target');
+                el.removeAttribute('rel');
             } else {
                 el = el.getElementsByTagName('a');
 
                 for (i = 0; i < el.length; i += 1) {
                     if (anchorUrl === el[i].attributes.href.value) {
                         el[i].removeAttribute('target');
+                        el[i].removeAttribute('rel');
                     }
                 }
             }
         },
 
+        /*
+         * this function adds one or several classes on an a element.
+         * if el parameter is not an a, it will look for a children of el.
+         * if no a children are found, it will look for the a parent.
+         */
         addClassToAnchors: function (el, buttonClass) {
             var classes = buttonClass.split(' '),
                 i,
@@ -622,7 +634,13 @@
                     el.classList.add(classes[j]);
                 }
             } else {
-                el = el.getElementsByTagName('a');
+                var aChildren = el.getElementsByTagName('a');
+                if (aChildren.length === 0) {
+                    var parentAnchor = Util.getClosestTag(el, 'a');
+                    el = parentAnchor ? [parentAnchor] : [];
+                } else {
+                    el = aChildren;
+                }
                 for (i = 0; i < el.length; i += 1) {
                     for (j = 0; j < classes.length; j += 1) {
                         el[i].classList.add(classes[j]);
@@ -655,19 +673,90 @@
             return false;
         },
 
-        cleanListDOM: function (ownerDocument, element) {
-            if (element.nodeName.toLowerCase() !== 'li') {
-                return;
+        findFirstTextNodeInSelection: function (selection) {
+            if (selection.anchorNode.nodeType === 3) {
+                return selection.anchorNode;
             }
 
-            var list = element.parentElement;
+            var node = selection.anchorNode.firstChild;
 
-            if (list.parentElement.nodeName.toLowerCase() === 'p') { // yes we need to clean up
-                Util.unwrap(list.parentElement, ownerDocument);
+            while (node) {
+                if (selection.containsNode(node, true)) {
+                    if (node.nodeType === 3) {
+                        return node;
+                    } else {
+                        node = node.firstChild;
+                    }
+                } else {
+                    node = node.nextSibling;
+                }
+            }
 
-                // move cursor at the end of the text inside the list
-                // for some unknown reason, the cursor is moved to end of the "visual" line
-                MediumEditor.selection.moveCursor(ownerDocument, element.firstChild, element.firstChild.textContent.length);
+            return null;
+        },
+
+        cleanListDOM: function (ownerDocument, element) {
+            if (element.nodeName.toLowerCase() !== 'li') {
+                if (this.isIE || this.isEdge) {
+                    return;
+                }
+
+                var selection = ownerDocument.getSelection(),
+                    newRange = ownerDocument.createRange(),
+                    oldRange = selection.getRangeAt(0),
+                    startContainer = oldRange.startContainer,
+                    startOffset = oldRange.startOffset,
+                    endContainer = oldRange.endContainer,
+                    endOffset = oldRange.endOffset,
+                    node, newNode, nextNode, moveEndOffset;
+
+                if (element.nodeName.toLowerCase() === 'span') {
+                    // Chrome & Safari unwraps removed li elements into a span
+                    node = element;
+                    moveEndOffset = false;
+                } else {
+                    // FF leaves them as text nodes
+                    node = this.findFirstTextNodeInSelection(selection);
+                    moveEndOffset = startContainer.nodeType !== 3;
+                }
+
+                while (node) {
+                    if (node.nodeName.toLowerCase() !== 'span' && node.nodeType !== 3) {
+                        break;
+                    }
+
+                    if (node.nextSibling && node.nextSibling.nodeName.toLowerCase() === 'br') {
+                        node.nextSibling.remove();
+
+                        if (moveEndOffset) {
+                            endOffset--;
+                        }
+                    }
+
+                    nextNode = node.nextSibling;
+
+                    newNode = ownerDocument.createElement('p');
+                    node.parentNode.replaceChild(newNode, node);
+                    newNode.appendChild(node);
+
+                    node = nextNode;
+                }
+
+                // Restore selection
+                newRange.setStart(startContainer, startOffset);
+                newRange.setEnd(endContainer, endOffset);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            } else {
+                var list = element.parentElement;
+
+                if (list.parentElement.nodeName.toLowerCase() === 'p') { // yes we need to clean up
+                    Util.unwrap(list.parentElement, ownerDocument);
+
+                    // move cursor at the end of the text inside the list
+                    // for some unknown reason, the cursor is moved to end of the "visual" line
+                    MediumEditor.selection.moveCursor(ownerDocument, element.firstChild, element.firstChild.textContent.length);
+                }
             }
         },
 
@@ -1023,11 +1112,15 @@
         },
 
         cleanupTags: function (el, tags) {
-            tags.forEach(function (tag) {
-                if (el.nodeName.toLowerCase() === tag) {
-                    el.parentNode.removeChild(el);
-                }
-            });
+            if (tags.indexOf(el.nodeName.toLowerCase()) !== -1) {
+                el.parentNode.removeChild(el);
+            }
+        },
+
+        unwrapTags: function (el, tags) {
+            if (tags.indexOf(el.nodeName.toLowerCase()) !== -1) {
+                MediumEditor.util.unwrap(el, document);
+            }
         },
 
         // get the closest parent
@@ -1052,6 +1145,17 @@
             } else {
                 el.parentNode.removeChild(el);
             }
+        },
+
+        guid: function () {
+            function _s4() {
+                return Math
+                    .floor((1 + Math.random()) * 0x10000)
+                    .toString(16)
+                    .substring(1);
+            }
+
+            return _s4() + _s4() + '-' + _s4() + '-' + _s4() + '-' + _s4() + '-' + _s4() + _s4() + _s4();
         }
     };
 

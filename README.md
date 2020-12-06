@@ -1,16 +1,22 @@
-﻿# MediumEditor
+﻿![medium-editor needs help!](https://user-images.githubusercontent.com/2444240/56086015-c42e3000-5e1b-11e9-9692-b97816f67712.png)
 
-[![Join the chat at https://gitter.im/yabwe/medium-editor](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/yabwe/medium-editor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+If you would be interested in helping to maintain one of the most successful WYSIWYG text editors on github, let us know!  (See issue [#1503](https://github.com/yabwe/medium-editor/issues/1503))
+
+# MediumEditor
 
 This is a clone of [medium.com](https://medium.com) inline editor toolbar.
 
 MediumEditor has been written using vanilla JavaScript, no additional frameworks required.
 
+[![screenshot](https://raw.github.com/yabwe/medium-editor/master/demo/img/medium-editor.jpg)](http://yabwe.github.io/medium-editor/)
+
+[![Join the chat at https://gitter.im/yabwe/medium-editor](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/yabwe/medium-editor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 ## Browser Support
 
-[![Sauce Test Status](https://saucelabs.com/browser-matrix/mediumeditor.svg)](https://saucelabs.com/u/mediumeditor)
+[![Saucelabs Build Status](https://saucelabs.com/browser-matrix/mediumeditor.svg)](https://saucelabs.com/beta/dashboard/builds)
 
-![Supportd Browsers](https://cloud.githubusercontent.com/assets/2444240/12874138/d3960a04-cd9b-11e5-8cc5-8136d82cf5f6.png)
+![Supported Browsers](https://cloud.githubusercontent.com/assets/2444240/12874138/d3960a04-cd9b-11e5-8cc5-8136d82cf5f6.png)
 
 [![NPM info](https://nodei.co/npm/medium-editor.png?downloads=true)](https://www.npmjs.com/package/medium-editor)
 
@@ -21,7 +27,7 @@ MediumEditor has been written using vanilla JavaScript, no additional frameworks
 
 # Basic usage
 
-![screenshot](https://raw.github.com/yabwe/medium-editor/master/demo/img/medium-editor.jpg)
+### Demo
 
 __demo__: [http://yabwe.github.io/medium-editor/](http://yabwe.github.io/medium-editor/)
 
@@ -42,15 +48,15 @@ Run in your console: `npm install medium-editor`
  For the latest version:
 
  ```html
- <script src="//cdn.jsdelivr.net/medium-editor/latest/js/medium-editor.min.js"></script>
- <link rel="stylesheet" href="//cdn.jsdelivr.net/medium-editor/latest/css/medium-editor.min.css" type="text/css" media="screen" charset="utf-8">
+ <script src="//cdn.jsdelivr.net/npm/medium-editor@latest/dist/js/medium-editor.min.js"></script>
+ <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/medium-editor@latest/dist/css/medium-editor.min.css" type="text/css" media="screen" charset="utf-8">
  ```
 
  For a custom one:
 
  ```html
- <script src="//cdn.jsdelivr.net/medium-editor/4.11.1/js/medium-editor.min.js"></script>
- <link rel="stylesheet" href="//cdn.jsdelivr.net/medium-editor/4.11.1/css/medium-editor.min.css" type="text/css" media="screen" charset="utf-8">
+ <script src="//cdn.jsdelivr.net/npm/medium-editor@5.23.2/dist/js/medium-editor.min.js"></script>
+ <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/medium-editor@5.23.2/dist/css/medium-editor.min.css" type="text/css" media="screen" charset="utf-8">
  ```
 
 * Using [CDNJS](https://cdnjs.com/libraries/medium-editor).
@@ -58,6 +64,8 @@ Run in your console: `npm install medium-editor`
 **Manual installation:**
 
 Download the [latest release](https://github.com/yabwe/medium-editor/releases) and attach medium editor's stylesheets to your page:
+
+Find the files to below mentioned linking in the dist folder. (./medium-editor/dist/...)
 
 ```html
 <link rel="stylesheet" href="css/medium-editor.css"> <!-- Core -->
@@ -137,9 +145,9 @@ var editor = new MediumEditor('.editable', {
         diffTop: -10,
         firstButtonClass: 'medium-editor-button-first',
         lastButtonClass: 'medium-editor-button-last',
+        relativeContainer: null,
         standardizeSelectionStart: false,
         static: false,
-        relativeContainer: null,
         /* options which only apply when static is true */
         align: 'center',
         sticky: false,
@@ -155,9 +163,9 @@ var editor = new MediumEditor('.editable', {
 * __diffTop__: value in pixels to be added to the Y axis positioning of the toolbar. Default: `-10`
 * __firstButtonClass__: CSS class added to the first button in the toolbar. Default: `'medium-editor-button-first'`
 * __lastButtonClass__: CSS class added to the last button in the toolbar. Default: `'medium-editor-button-last'`
+* __relativeContainer__: DOMElement to append the toolbar to instead of the body.  When passed, the toolbar will also be positioned `relative` instead of `absolute`. Default: `null`
 * __standardizeSelectionStart__: enables/disables standardizing how the beginning of a range is decided between browsers whenever the selected text is analyzed for updating toolbar buttons status. Default: `false`
 * __static__: enable/disable the toolbar always displaying in the same location relative to the medium-editor element. Default: `false`
-* __relativeContainer__: Toolbar is appended relative to a given DOM-Node instead of appending it to the body and position it absolute.
 
 ##### Options which only apply when the `static` option is being used:
 * __align__: `left`|`center`|`right` - When the __static__ option is `true`, this aligns the static toolbar relative to the medium-editor element. Default: `center`
@@ -233,7 +241,7 @@ var editor = new MediumEditor('.editable', {
 
 ### Anchor Preview options
 
-The anchor preview is a built-in extension which automatically displays a 'tooltip' when the user is hovering over a link in the editor.  The tooltip will display the `href` of the link, and when click, will open the anchor editing form in the toolbar.
+The anchor preview is a built-in extension which automatically displays a 'tooltip' when the user is hovering over a link in the editor.  The tooltip will display the `href` of the link, and when clicked, will open the anchor editing form in the toolbar.
 
 Options for the anchor preview 'tooltip' are passed as an object that is a member of the outer options object. Example:
 ```javascript
@@ -251,6 +259,7 @@ var editor = new MediumEditor('.editable', {
 * __hideDelay__: time in milliseconds to show the anchor tag preview after the mouse has left the anchor tag. Default: `500`
 * __previewValueSelector__: the default selector to locate where to put the activeAnchor value in the preview. You should only need to override this if you've modified the way in which the anchor-preview extension renders. Default: `'a'`
 * __showWhenToolbarIsVisible__: determines whether the anchor tag preview shows up when the toolbar is visible. You should set this value to true if the static option for the toolbar is true and you want the preview to show at the same time. Default: `false`
+* __showOnEmptyLinks__: determines whether the anchor tag preview shows up on link with href as '' or '#something'. You should set this value to false if you do not want the preview to show up in such use cases. Default: `true`
 
 To disable the anchor preview, set the value of the `anchorPreview` option to `false`:
 ```javascript
@@ -317,7 +326,7 @@ var editor = new MediumEditor('.editable', {
 
 * __customClassOption__: custom class name the user can optionally have added to their created links (ie 'button').  If passed as a non-empty string, a checkbox will be displayed allowing the user to choose whether to have the class added to the created link or not. Default: `null`
 * __customClassOptionText__: text to be shown in the checkbox when the __customClassOption__ is being used. Default: `'Button'`
-* __linkValidation__: enables/disables check for common URL protocols on anchor links. Default: `false`
+* __linkValidation__: enables/disables check for common URL protocols on anchor links. Converts invalid url characters (ie spaces) to valid characters using `encodeURI`. Default: `false`
 * __placeholderText__: text to be shown as placeholder of the anchor input. Default: `'Paste or type a link'`
 * __targetCheckbox__: enables/disables displaying a "Open in new window" checkbox, which when checked changes the `target` attribute of the created link. Default: `false`
 * __targetCheckboxText__: text to be shown in the checkbox enabled via the __targetCheckbox__ option. Default: `'Open in new window'`
@@ -336,7 +345,8 @@ var editor = new MediumEditor('.editable', {
         cleanPastedHTML: false,
         cleanReplacements: [],
         cleanAttrs: ['class', 'style', 'dir'],
-        cleanTags: ['meta']
+        cleanTags: ['meta'],
+        unwrapTags: []
     }
 });
 ```
@@ -347,6 +357,7 @@ var editor = new MediumEditor('.editable', {
 * __cleanReplacements__: custom pairs (2 element arrays) of RegExp and replacement text to use during paste when __forcePlainText__ or __cleanPastedHTML__ are `true` OR when calling `cleanPaste(text)` helper method.  These replacements are executed _after_ builtin replacements.  Default: `[]`
 * __cleanAttrs__: list of element attributes to remove during paste when __cleanPastedHTML__ is `true` or when calling `cleanPaste(text)` or `pasteHTML(html,options)` helper methods. Default: `['class', 'style', 'dir']`
 * __cleanTags__: list of element tag names to remove during paste when __cleanPastedHTML__ is `true` or when calling `cleanPaste(text)` or `pasteHTML(html,options)` helper methods. Default: `['meta']`
+* __unwrapTags__: list of element tag names to unwrap (remove the element tag but retain its child elements) during paste when __cleanPastedHTML__ is `true` or when calling `cleanPaste(text)` or `pasteHTML(html,options)` helper methods. Default: `[]`
 
 ### KeyboardCommands Options
 
@@ -454,7 +465,8 @@ var editor = new MediumEditor('.editable', {
     paste: {
         cleanPastedHTML: true,
         cleanAttrs: ['style', 'dir'],
-        cleanTags: ['label', 'meta']
+        cleanTags: ['label', 'meta'],
+        unwrapTags: ['sub', 'sup']
     },
     anchorPreview: {
         hideDelay: 300
@@ -464,7 +476,6 @@ var editor = new MediumEditor('.editable', {
     }
 });
 ```
-
 
 ## Buttons
 
@@ -477,7 +488,7 @@ MediumEditor, by default, will show only the buttons listed here to avoid a huge
 * __bold__
 * __italic__
 * __underline__
-* __anchor__ _(built-in support for collecting a url via the anchor extension)_
+* __anchor__ _(built-in support for collecting a URL via the anchor extension)_
 * __h2__
 * __h3__
 * __quote__
@@ -511,6 +522,7 @@ These are all the built-in buttons supported by MediumEditor.
 * __h5__
 * __h6__
 * __removeFormat__ (clears inline style formatting, preserves blocks)
+* __html__ (parses selected html and converts into actual html elements)
 
 ## Themes
 
@@ -524,6 +536,8 @@ View the [MediumEditor Object API documentation](API.md) on the Wiki for details
 * __MediumEditor(elements, options)__:  Creates an instance of MediumEditor
 * __.destroy()__: tears down the editor if already setup, removing all DOM elements and event handlers
 * __.setup()__: rebuilds the editor if it has already been destroyed, recreating DOM elements and attaching event handlers
+* __.addElements()__: add elements to an already initialized instance of MediumEditor
+* __.removeElements()__: remove elements from an already initialized instance of MediumEditor
 
 ### Event Methods
 * __.on(target, event, listener, useCapture)__: attach a listener to a DOM event which will be detached when MediumEditor is deactivated
@@ -554,9 +568,60 @@ View the [MediumEditor Object API documentation](API.md) on the Wiki for details
 
 ### Helper Methods
 * __.delay(fn)__: delay any function from being executed by the amount of time passed as the `delay` option
+* __.getContent(index)__: gets the trimmed `innerHTML` of the element at `index`
 * __.getExtensionByName(name)__: get a reference to an extension with the specified name
+* __.resetContent(element)__: reset the content of all elements or a specific element to its value when added to the editor initially
 * __.serialize()__: returns a JSON object with elements contents
 * __.setContent(html, index)__: sets the `innerHTML` to `html` of the element at `index`
+
+### Static Methods/Properties
+* __.getEditorFromElement(element)__: retrieve the instance of MediumEditor that is monitoring the provided editor element
+* __.version__: the version information for the MediumEditor library
+
+## Dynamically add/remove elements to your instance
+
+It is possible to dynamically add new elements to your existing MediumEditor instance:
+
+```javascript
+var editor = new MediumEditor('.editable');
+editor.subscribe('editableInput', this._handleEditableInput.bind(this));
+
+// imagine an ajax fetch/any other dynamic functionality which will add new '.editable' elements to the DOM
+
+editor.addElements('.editable');
+// OR editor.addElements(document.getElementsByClassName('editable'));
+// OR editor.addElements(document.querySelectorAll('.editable'));
+```
+
+Passing an elements or array of elements to `addElements(elements)` will:
+* Add the given element or array of elements to the internal `this.elements` array.
+* Ensure the element(s) are initialized with the proper attributes and event handlers as if the element had been passed during instantiation of the editor.
+* For any `<textarea>` elements:
+  * Hide the `<textarea>`
+  * Create a new `<div contenteditable=true>` element and add it to the elements array.
+  * Ensure the 2 elements remain sync'd.
+* Be intelligent enough to run the necessary code only once per element, no matter how often you will call it.
+
+### Removing elements dynamically
+
+Straight forward, just call `removeElements` with the element or array of elements you to want to tear down. Each element itself will remain a contenteditable - it will just remove all event handlers and all references to it so you can safely remove it from DOM.
+
+```javascript
+editor.removeElements(document.querySelector('#myElement'));
+// OR editor.removeElements(document.getElementById('myElement'));
+// OR editor.removeElements('#myElement');
+
+// in case you have jQuery and don't exactly know when an element was removed, for example after routing state change
+var removedElements = [];
+editor.elements.forEach(function (element) {
+    // check if the element is still available in current DOM
+    if (!$(element).parents('body').length) {
+        removedElements.push(element);
+    }
+});
+
+editor.removeElements(removedElements);
+```
 
 ## Capturing DOM changes
 
@@ -579,7 +644,7 @@ This is handy when you need to capture any modifications to the contenteditable 
 
 Why is this interesting and why should you use this event instead of just attaching to the `input` event on the contenteditable element?
 
-So for most modern browsers (Chrome, Firefox, Safari, etc.), the `input` event works just fine. Infact, `editableInput` is just a proxy for the `input` event in those browsers. However, the `input` event [is not supported for contenteditable elements in IE 9-11](https://connect.microsoft.com/IE/feedback/details/794285/ie10-11-input-event-does-not-fire-on-div-with-contenteditable-set) and is _mostly_ supported in Microsoft Edge, but not fully.
+So for most modern browsers (Chrome, Firefox, Safari, etc.), the `input` event works just fine. In fact, `editableInput` is just a proxy for the `input` event in those browsers. However, the `input` event [is not supported for contenteditable elements in IE 9-11](https://connect.microsoft.com/IE/feedback/details/794285/ie10-11-input-event-does-not-fire-on-div-with-contenteditable-set) and is _mostly_ supported in Microsoft Edge, but not fully.
 
 So, to properly support the `editableInput` event in Internet Explorer and Microsoft Edge, MediumEditor uses a combination of the `selectionchange` and `keypress` events, as well as monitoring calls to `document.execCommand`.
 
@@ -590,6 +655,13 @@ Check the [documentation](src/js/extensions) in order to learn how to develop ex
 A list of existing extensions and plugins, such as [Images and Media embeds](http://orthes.github.io/medium-editor-insert-plugin/), [Tables](https://github.com/yabwe/medium-editor-tables) and [Markdown](https://github.com/IonicaBizau/medium-editor-markdown) can be found [here](https://github.com/yabwe/medium-editor/wiki/Extensions-Plugins).
 
 ## Development
+
+To run the demo locally:
+
+1. Clone this repo locally
+2. Run `npm install` from your console at the root
+3. Run `node index.js` from the root
+4. Navigate to `http://localhost:8088/demo/index.html` to view the demo
 
 MediumEditor development tasks are managed by Grunt. To install all the necessary packages, just invoke:
 
@@ -622,7 +694,7 @@ The source files are located inside the __src__ directory.  Be sure to make chan
 4. Update the documentation to reflect your changes if they add or changes current functionality.
 5. Commit your changes (`git commit -am 'Added some feature'`) **without files from the _dist_ directory**.
 6. Push to the branch (`git push origin my-new-feature`)
-7. Create new Pull Request
+7. Create a new Pull Request
 
 ### Code Consistency
 

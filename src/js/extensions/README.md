@@ -21,6 +21,7 @@
     * [`checkState(node)`](#checkstatenode)
     * [`destroy()`](#destroy)
     * [`queryCommandState()`](#querycommandstate)
+    * [`getInteractionElements()`](#getinteractionelements)
     * [`isActive()`](#isactive)
     * [`isAlreadyApplied(node)`](#isalreadyappliednode)
     * [`setActive()`](#setactive)
@@ -90,7 +91,16 @@
   * A Medium Editor extension for adding custom 'mention' support, circa Medium 2.0.
 * [MediumEditor AutoList](https://github.com/varun-raj/medium-editor-autolist)
   * A Medium Editor extension for converting `1.` and `*` into ordered lists and unordered lists.
-
+* [MediumEditor Toolbar States](https://github.com/davideanderson/medium-editor-toolbar-states)
+  * An Extension for the medium-editor which allows different toolbar configurations based on the selected element(s).
+* [MediumEditor AutoFocus](https://github.com/dazorni/medium-editor-autofocus)
+  * Autofocus plugin for medium-editor
+* [MediumEditor Thaana Keyboard](https://github.com/jawish/medium-editor-thaanakbd)
+  * Thaana Keyboard extension for medium-editor
+* [MediumEditor Merge Fields Plugin](https://github.com/epascarello/merge-fields-plugin-for-medium-editor)
+  * Add merge fields for medium-editor
+* [MediumEditor Google Docs Anchor Preview](https://github.com/patternhq/MediumTools/tree/master/GdocMediumAnchorPreview)
+  * Google Doc style link preview for medium-editor
 
 ## What is a Button?
 **Buttons** are a specific type of Extension which have a contract with the MediumEditor toolbar.  Buttons have specific lifecycle methods that MediumEditor and the toolbar use to interact with these specific types of Extensions.  These contract create easy hooks, allowing custom buttons to:
@@ -108,6 +118,7 @@
 * justifyLeft, justifyCenter, justifyRight, justifyFull
 * h1, h2, h3, h4, h5, h6
 * removeFormat
+* html
 
 #### Examples of custom built external buttons:
 * [MediumEditor tables](https://github.com/yabwe/medium-editor-tables)
@@ -116,11 +127,14 @@
   * An extension that inserts custom HTML using a new button in the MediumEditor toolbar
 * [MediumButton](https://github.com/arcs-/MediumButton)
   * Extends your Medium Editor with the possibility add buttons.
+* [MediumEditor Phrase](https://github.com/nymag/medium-editor-phrase)
+  * Adds a configurable button to the MediumEditor toolbar which adds phrasing content tags (e.g. `span` tags) to selected text.
 * [MediumEditor Handsontable](https://github.com/asselinpaul/medium-editor-handsontable)
   * Supports adding [handsontable](https://handsontable.com/) spreadsheets to MediumEditor.
 * [MediumEditor Lists](https://github.com/mkawczynski07/medium-editor-list)
   * Adds a "Add Paragraph" button which allows for inserting customized paragraphs to MediumEditor
-
+* [MediumEditor Embed Button](https://github.com/orhanveli/medium-editor-embed-button)
+  * oEmbed based embedding button extension to add rich embeds to your document.
 
 ## What is a Form Extension?
 **Form Extensions** are a specific type of Button Extension which collect input from the user via the toolbar.  Form Extensions extend from Button, and thus inherit all of the lifecycle methods of a Button.  In addition, Form Extensions have some additional methods exposed to interact with MediumEditor and provide some common functionality.
@@ -234,9 +248,16 @@ If this method returns `true`, and the `setActive()` method is defined on the ex
 **Returns:** `boolean` OR `null`
 
 ***
+### `getInteractionElements()`
+
+If the extension renders any elements that the user can interact with, this method should be implemented and return the root element or an array containing all of the root elements.
+
+MediumEditor will call this function during interaction to see if the user clicked on something outside of the editor. The elements are used to check if the target element of a click or other user event is a descendant of any extension elements. This way, the editor can also count user interaction within editor elements as interactions with the editor, and thus not trigger 'blur'
+
+***
 ### `isActive()`
 
-If implemented, this method will be called from MediumEditor to determine whether the button has already been set as 'active'. 
+If implemented, this method will be called from MediumEditor to determine whether the button has already been set as 'active'.
 
 If it returns `true`, this extension/button will be skipped for checking its active state as MediumEditor responds to the change in selection.
 
@@ -252,7 +273,7 @@ If implemented, this method is similar to `checkState()` in that it will be call
 
 **NOTE:**
 
-* This method will NOT be called if `checkState()` has been implemented. 
+* This method will NOT be called if `checkState()` has been implemented.
 * This method will NOT be called if `queryCommandState()` is implemented and returns a non-null value when called.
 
 **Arguments**
@@ -273,7 +294,7 @@ Currently, this method is called when updating the editor & toolbar, and if `que
 ***
 ### `setInactive()`
 
-If implemented, this method is called when MediumEditor knows that this extension has not been applied to the current selection. Curently, this is called at the beginning of each state change for the editor & toolbar. 
+If implemented, this method is called when MediumEditor knows that this extension has not been applied to the current selection. Curently, this is called at the beginning of each state change for the editor & toolbar.
 
 After calling this, MediumEditor will attempt to update the extension, either via `checkState()` or the combination of `queryCommandState()`, `isAlreadyApplied(node)`, `isActive()`, and `setActive()`
 
@@ -540,7 +561,7 @@ var CustomButtonExtension = MediumEditor.extensions.button.extend({
   name: 'custom-button-extension',
 
   action: 'bold'
-  
+
   // ... other properties/methods ...
 })
 ```
@@ -559,24 +580,24 @@ var CustomButtonExtension = MediumEditor.extensions.button.extend({
   name: 'custom-button-extension',
 
   aria: 'bold text'
-  
+
   // ... other properties/methods ...
 })
 ```
 
 ***
 ### `tagNames` _(Array)_
-        
+
 Array of element tag names that would indicate that this button has already been applied. If this action has already been applied, the button will be displayed as 'active' in the toolbar.
 
-**NOTE:** 
+**NOTE:**
 
 `tagNames` is not used if `useQueryState` is set to `true`.
 
 **Example:**
 
 The following would create a custom button extension which would be 'active' in the toolbar if the selection is within a `<b>` or a `<strong>` tag:
-      
+
 ```js
 var CustomButtonExtension = MediumEditor.extensions.button.extend({
   name: 'custom-button-extension',
@@ -584,7 +605,7 @@ var CustomButtonExtension = MediumEditor.extensions.button.extend({
   useQueryState: false,
 
   tagNames: ['b', 'strong'],
-  
+
   // ... other properties/methods ...
 })
 ```
@@ -599,7 +620,7 @@ A pair of css property & value(s) that indicate that this button has already bee
 * **prop** *[String]*: name of the css property
 * **value** *[String]*: value(s) of the css property (multiple values can be separated by a '|')
 
-**NOTE:** 
+**NOTE:**
 
 `style` is not used if `useQueryState` is set to `true`.
 
@@ -617,7 +638,7 @@ var CustomButtonExtension = MediumEditor.extensions.button.extend({
     prop: 'font-weight',
     value: '700|bold'
   },
-  
+
   // ... other properties/methods ...
 })
 ```

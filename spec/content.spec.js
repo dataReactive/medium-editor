@@ -2,7 +2,7 @@
          prepareEvent, selectElementContents,
          selectElementContentsAndFire,
          placeCursorInsideElement,
-         isFirefox */
+         getEdgeVersion, isFirefox */
 
 describe('Content TestCase', function () {
     'use strict';
@@ -87,6 +87,17 @@ describe('Content TestCase', function () {
                 // Webkit removes the nested spans, IE does not
                 expect(this.el.innerHTML).toMatch(/<ol><li>lorem<\/li><li>(<span><span>)?ipsum(<br>|<\/span><\/span>)<\/li><\/ol>/);
             }
+        });
+
+        it('should insert a space when within a pre node', function () {
+            this.el.innerHTML = '<pre>lorem ipsum</pre>';
+            var editor = this.newMediumEditor('.editor'),
+                targetNode = editor.elements[0].querySelector('pre');
+            placeCursorInsideElement(targetNode, 0);
+            fireEvent(targetNode, 'keydown', {
+                keyCode: MediumEditor.util.keyCode.TAB
+            });
+            expect(this.el.innerHTML).toBe('<pre>    lorem ipsum</pre>');
         });
     });
 
@@ -399,6 +410,47 @@ describe('Content TestCase', function () {
 
             expect(document.execCommand).not.toHaveBeenCalledWith('formatBlock', false, 'p');
         });
+
+        it('inside an anchor the anchors should be unlinked', function () {
+            this.el.innerHTML = '<a href="#">test</a>';
+            var editor = this.newMediumEditor('.editor'),
+                target = editor.elements[0].querySelector('a');
+            spyOn(document, 'execCommand').and.callThrough();
+            placeCursorInsideElement(target, 1);
+            fireEvent(target, 'keyup', {
+                keyCode: MediumEditor.util.keyCode.ENTER
+            });
+            expect(document.execCommand).toHaveBeenCalledWith('unlink', false, null);
+        });
+
+        describe('within a blockquote element', function () {
+
+            it('at the end of the blockquote, p tag should be created next, not blockquote', function () {
+                this.el.innerHTML = '<blockquote>lorem ipsum</blockquote>';
+                var editor = this.newMediumEditor('.editor'),
+                    target = editor.elements[0].querySelector('blockquote').firstChild;
+
+                placeCursorInsideElement(target, target.textContent.length);
+                fireEvent(target, 'keydown', {
+                    keyCode: MediumEditor.util.keyCode.ENTER
+                });
+
+                expect(this.el.innerHTML).toBe('<blockquote>lorem ipsum</blockquote><p><br></p>');
+            });
+
+            it('NOT at the start of the blockqoute, no formatting should be changed', function () {
+                this.el.innerHTML = '<blockquote>lorem ipsum</blockquote>';
+                var editor = this.newMediumEditor('.editor'),
+                    target = editor.elements[0].querySelector('blockquote').firstChild;
+
+                placeCursorInsideElement(target, 0);
+                fireEvent(target, 'keydown', {
+                    keyCode: MediumEditor.util.keyCode.ENTER
+                });
+
+                expect(this.el.innerHTML).toBe('<blockquote>lorem ipsum</blockquote>');
+            });
+        });
     });
 
     describe('when the ctrl key and m key is pressed', function () {
@@ -545,17 +597,76 @@ describe('Content TestCase', function () {
         });
     });
 
-    describe('should unlink anchors', function () {
-        it('when the user presses enter inside an anchor', function () {
-            this.el.innerHTML = '<a href="#">test</a>';
-            var editor = this.newMediumEditor('.editor'),
-                target = editor.elements[0].querySelector('a');
-            spyOn(document, 'execCommand').and.callThrough();
-            placeCursorInsideElement(target, 1);
-            fireEvent(target, 'keyup', {
-                keyCode: MediumEditor.util.keyCode.ENTER
+    describe('when backspace is pressed', function () {
+
+        describe('within a blockquote element', function () {
+
+            it('at the start of the blockquote, the blockquote tag should be replaced with a p tag', function () {
+                this.el.innerHTML = '<blockquote>lorem ipsum</blockquote>';
+                var editor = this.newMediumEditor('.editor'),
+                    target = editor.elements[0].querySelector('blockquote');
+
+                placeCursorInsideElement(target, 0);
+                fireEvent(target, 'keydown', {
+                    keyCode: MediumEditor.util.keyCode.BACKSPACE
+                });
+                expect(this.el.innerHTML).toBe('<p>lorem ipsum</p>');
             });
-            expect(document.execCommand).toHaveBeenCalledWith('unlink', false, null);
+
+            it('NOT at the start of the blockqoute, no formatting should be changed', function () {
+                this.el.innerHTML = '<blockquote>lorem ipsum</blockquote>';
+                var editor = this.newMediumEditor('.editor'),
+                    target = editor.elements[0].querySelector('blockquote');
+
+                placeCursorInsideElement(target, 1);
+                fireEvent(target, 'keydown', {
+                    keyCode: MediumEditor.util.keyCode.BACKSPACE
+                });
+                expect(this.el.innerHTML).toBe('<blockquote>lorem ipsum</blockquote>');
+            });
+        });
+
+        describe('within an empty first list item', function () {
+            it('should insert a paragraph before the list if it is the first element in the editor', function () {
+                this.el.innerHTML = '<ul><li></li><li>lorem ipsum</li></ul>';
+                var editor = this.newMediumEditor('.editor'),
+                    target = editor.elements[0].querySelector('li'),
+                    range;
+                placeCursorInsideElement(target, 0);
+                fireEvent(target, 'keydown', {
+                    keyCode: MediumEditor.util.keyCode.BACKSPACE
+                });
+                expect(this.el.innerHTML).toBe('<p><br></p><ul><li>lorem ipsum</li></ul>');
+                range = document.getSelection().getRangeAt(0);
+                expect(range.commonAncestorContainer.nodeName.toLowerCase()).toBe('p');
+            });
+
+            it('should not insert a paragraph before the list if it is NOT the first element in the editor', function () {
+                this.el.innerHTML = '<p>lorem ipsum</p><ul><li></li><li>lorem ipsum</li></ul>';
+                var editor = this.newMediumEditor('.editor'),
+                    target = editor.elements[0].querySelector('li');
+                placeCursorInsideElement(target, 0);
+                fireEvent(target, 'keydown', {
+                    keyCode: MediumEditor.util.keyCode.BACKSPACE
+                });
+                expect(this.el.innerHTML).toMatch(/^<p>lorem ipsum<\/p><ul><li>(<br>)?<\/li><li>lorem ipsum<\/li><\/ul>$/);
+            });
+        });
+
+        describe('within an empty paragraph which is the first element of the editor', function () {
+            it('should delete the paragraph and place the caret to the next paragraph', function () {
+                this.el.innerHTML = '<p class=""><br></p><p>test</p>';
+                var editor = this.newMediumEditor('.editor'),
+                    target = editor.elements[0].querySelector('p'),
+                    range;
+                placeCursorInsideElement(target, 0);
+                fireEvent(target, 'keydown', {
+                    keyCode: MediumEditor.util.keyCode.BACKSPACE
+                });
+                expect(this.el.innerHTML).toBe('<p>test</p>');
+                range = document.getSelection().getRangeAt(0);
+                expect(range.commonAncestorContainer.textContent).toBe('test');
+            });
         });
     });
 
@@ -596,17 +707,6 @@ describe('Content TestCase', function () {
         });
     });
 
-    it('should insert a space when hitting tab key within a pre node', function () {
-        this.el.innerHTML = '<pre>lorem ipsum</pre>';
-        var editor = this.newMediumEditor('.editor'),
-            targetNode = editor.elements[0].querySelector('pre');
-        placeCursorInsideElement(targetNode, 0);
-        fireEvent(targetNode, 'keydown', {
-            keyCode: MediumEditor.util.keyCode.TAB
-        });
-        expect(this.el.innerHTML).toBe('<pre>    lorem ipsum</pre>');
-    });
-
     it('should call formatBlock when a keyup results in an empty element', function () {
         this.el.innerHTML = ' ';
         var editor = this.newMediumEditor('.editor'),
@@ -622,57 +722,34 @@ describe('Content TestCase', function () {
         expect(this.el.innerHTML).toMatch(/(<p><br><\/p>)?/);
     });
 
-    describe('when pressing backspace key on blockquote element', function () {
-        it('should remove the blockquote tag and replace it with p tag when cursor is at the start of the blockquote content', function () {
-            this.el.innerHTML = '<blockquote>lorem ipsum</blockquote>';
-            var editor = this.newMediumEditor('.editor'),
-                target = editor.elements[0].querySelector('blockquote');
+    // https://github.com/yabwe/medium-editor/issues/994
+    it('should not throw an error when keyup occurs within a non-div editor', function () {
+        var origEC = document.execCommand,
+            errorCount = 0;
+        // Wrap document.execCommand so we can detect browser errors when it's called
+        document.execCommand = function () {
+            try {
+                origEC.apply(document, arguments);
+            } catch (err) {
+                errorCount++;
+                throw err;
+            }
+        };
 
-            placeCursorInsideElement(target, 0);
-            fireEvent(target, 'keydown', {
-                keyCode: MediumEditor.util.keyCode.BACKSPACE
-            });
-            expect(this.el.innerHTML).toBe('<p>lorem ipsum</p>');
+        this.el.parentNode.removeChild(this.el);
+        this.el = this.createElement('h1', 'editor', 'Lorem ipsum dolor sit amet');
+
+        var editor = this.newMediumEditor('h1.editor');
+        editor.elements[0].focus();
+        selectElementContentsAndFire(editor.elements[0]);
+        jasmine.clock().tick(1);
+        fireEvent(editor.elements[0], 'keyup', {
+            keyCode: MediumEditor.util.keyCode.M
         });
 
-        it('should not change any formatting when cursor is not at the start of the blockquote content', function () {
-            this.el.innerHTML = '<blockquote>lorem ipsum</blockquote>';
-            var editor = this.newMediumEditor('.editor'),
-                target = editor.elements[0].querySelector('blockquote');
-
-            placeCursorInsideElement(target, 1);
-            fireEvent(target, 'keydown', {
-                keyCode: MediumEditor.util.keyCode.BACKSPACE
-            });
-            expect(this.el.innerHTML).toBe('<blockquote>lorem ipsum</blockquote>');
-        });
-    });
-
-    describe('when deleting an empty first list item via backspace', function () {
-        it('should insert a paragraph before the list if it is the first element in the editor', function () {
-            this.el.innerHTML = '<ul><li></li><li>lorem ipsum</li></ul>';
-            var editor = this.newMediumEditor('.editor'),
-                target = editor.elements[0].querySelector('li'),
-                range;
-            placeCursorInsideElement(target, 0);
-            fireEvent(target, 'keydown', {
-                keyCode: MediumEditor.util.keyCode.BACKSPACE
-            });
-            expect(this.el.innerHTML).toBe('<p><br></p><ul><li>lorem ipsum</li></ul>');
-            range = document.getSelection().getRangeAt(0);
-            expect(range.commonAncestorContainer.nodeName.toLowerCase()).toBe('p');
-        });
-
-        it('should not insert a paragraph before the list if it is NOT the first element in the editor', function () {
-            this.el.innerHTML = '<p>lorem ipsum</p><ul><li></li><li>lorem ipsum</li></ul>';
-            var editor = this.newMediumEditor('.editor'),
-                target = editor.elements[0].querySelector('li');
-            placeCursorInsideElement(target, 0);
-            fireEvent(target, 'keydown', {
-                keyCode: MediumEditor.util.keyCode.BACKSPACE
-            });
-            expect(this.el.innerHTML).toBe('<p>lorem ipsum</p><ul><li></li><li>lorem ipsum</li></ul>');
-        });
+        // Restore original document.execCommand
+        document.execCommand = origEC;
+        expect(errorCount).toBe(0, 'there was an error thrown when calling document.execCommand()');
     });
 
     describe('spellcheck', function () {
@@ -731,6 +808,77 @@ describe('Content TestCase', function () {
             para = this.el.querySelector('p');
             expect(para.querySelectorAll('br').length).toBe(3, 'Some of the <br> elements have been removed from the <p>');
             expect(para.querySelectorAll('div').length).toBe(0, 'Some <br> elements were replaced with <div> elements within the <p>');
+        });
+    });
+
+    describe('when list element is unlisted', function () {
+        it('should fix markup when one list element is unlisted', function () {
+            this.el.innerHTML = '<ul><li>lorem</li><li>ipsum</li><li>dolor</li></ul>';
+            var editor = this.newMediumEditor('.editor', {
+                    toolbar: {
+                        buttons: ['unorderedlist']
+                    }
+                }),
+                target = editor.elements[0].querySelector('li'),
+                toolbar = editor.getExtensionByName('toolbar');
+
+            selectElementContentsAndFire(target);
+            fireEvent(toolbar.getToolbarElement().querySelector('[data-action="insertunorderedlist"]'), 'click');
+
+            if (getEdgeVersion() > 0) {
+                // Edge wraps elements in div
+                expect(this.el.innerHTML).toBe('<div>lorem</div><ul><li>ipsum</li><li>dolor</li></ul>');
+            } else {
+                // Other browsers should wrap them in p
+                expect(this.el.innerHTML).toBe('<p>lorem</p><ul><li>ipsum</li><li>dolor</li></ul>');
+            }
+        });
+
+        it('should fix markup when miltiple list elements are unlisted', function () {
+            this.el.innerHTML = '<ol><li>lorem</li><li>ipsum</li><li>dolor</li></ol>';
+            var editor = this.newMediumEditor('.editor', {
+                    toolbar: {
+                        buttons: ['orderedlist']
+                    }
+                }),
+                toolbar = editor.getExtensionByName('toolbar'),
+                selection = document.getSelection(),
+                range = document.createRange();
+
+            range.setStart(this.el.querySelectorAll('li')[0].firstChild, 0);
+            range.setEnd(this.el.querySelectorAll('li')[1].firstChild, 5);
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            fireEvent(toolbar.getToolbarElement().querySelector('[data-action="insertorderedlist"]'), 'click');
+            if (getEdgeVersion() > 0) {
+                // Edge wraps elements in div
+                expect(this.el.innerHTML).toBe('<div>lorem</div><div>ipsum</div><ol><li>dolor</li></ol>');
+            } else {
+                // Other browsers should wrap them in p
+                expect(this.el.innerHTML).toBe('<p>lorem</p><p>ipsum</p><ol><li>dolor</li></ol>');
+            }
+        });
+
+        it('should fix markup when all list elements are unlisted', function () {
+            this.el.innerHTML = '<ul><li>lorem</li><li>ipsum</li><li>dolor</li></ul>';
+            var editor = this.newMediumEditor('.editor', {
+                    toolbar: {
+                        buttons: ['unorderedlist']
+                    }
+                }),
+                target = editor.elements[0].querySelector('ul'),
+                toolbar = editor.getExtensionByName('toolbar');
+
+            selectElementContentsAndFire(target);
+            fireEvent(toolbar.getToolbarElement().querySelector('[data-action="insertunorderedlist"]'), 'click');
+            if (getEdgeVersion() > 0) {
+                // Edge wraps elements in div
+                expect(this.el.innerHTML).toBe('<div>lorem</div><div>ipsum</div><div>dolor</div>');
+            } else {
+                // Other browsers should wrap them in p
+                expect(this.el.innerHTML).toBe('<p>lorem</p><p>ipsum</p><p>dolor</p>');
+            }
         });
     });
 });

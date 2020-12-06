@@ -21,6 +21,11 @@
          */
         showWhenToolbarIsVisible: false,
 
+        /* showOnEmptyLinks: [boolean]
+        * determines whether the anchor tag preview shows up on links with href="" or href="#something"
+        */
+        showOnEmptyLinks: true,
+
         init: function () {
             this.anchorPreview = this.createPreview();
 
@@ -29,6 +34,11 @@
             this.attachToEditables();
         },
 
+        getInteractionElements: function () {
+            return this.getPreviewElement();
+        },
+
+        // TODO: Remove this function in 6.0.0
         getPreviewElement: function () {
             return this.anchorPreview;
         },
@@ -61,7 +71,9 @@
         },
 
         hidePreview: function () {
-            this.anchorPreview.classList.remove('medium-editor-anchor-preview-active');
+            if (this.anchorPreview) {
+                this.anchorPreview.classList.remove('medium-editor-anchor-preview-active');
+            }
             this.activeAnchor = null;
         },
 
@@ -93,13 +105,15 @@
 
         positionPreview: function (activeAnchor) {
             activeAnchor = activeAnchor || this.activeAnchor;
-            var buttonHeight = this.anchorPreview.offsetHeight,
+            var containerWidth = this.window.innerWidth,
+                buttonHeight = this.anchorPreview.offsetHeight,
                 boundary = activeAnchor.getBoundingClientRect(),
-                middleBoundary = (boundary.left + boundary.right) / 2,
                 diffLeft = this.diffLeft,
                 diffTop = this.diffTop,
-                halfOffsetWidth,
-                defaultLeft;
+                elementsContainer = this.getEditorOption('elementsContainer'),
+                elementsContainerAbsolute = ['absolute', 'fixed'].indexOf(window.getComputedStyle(elementsContainer).getPropertyValue('position')) > -1,
+                relativeBoundary = {},
+                halfOffsetWidth, defaultLeft, middleBoundary, elementsContainerBoundary, top;
 
             halfOffsetWidth = this.anchorPreview.offsetWidth / 2;
             var toolbarExtension = this.base.getExtensionByName('toolbar');
@@ -109,12 +123,35 @@
             }
             defaultLeft = diffLeft - halfOffsetWidth;
 
-            this.anchorPreview.style.top = Math.round(buttonHeight + boundary.bottom - diffTop + this.window.pageYOffset - this.anchorPreview.offsetHeight) + 'px';
+            // If container element is absolute / fixed, recalculate boundaries to be relative to the container
+            if (elementsContainerAbsolute) {
+                elementsContainerBoundary = elementsContainer.getBoundingClientRect();
+                ['top', 'left'].forEach(function (key) {
+                    relativeBoundary[key] = boundary[key] - elementsContainerBoundary[key];
+                });
+
+                relativeBoundary.width = boundary.width;
+                relativeBoundary.height = boundary.height;
+                boundary = relativeBoundary;
+
+                containerWidth = elementsContainerBoundary.width;
+
+                // Adjust top position according to container scroll position
+                top = elementsContainer.scrollTop;
+            } else {
+                // Adjust top position according to window scroll position
+                top = this.window.pageYOffset;
+            }
+
+            middleBoundary = boundary.left + boundary.width / 2;
+            top += buttonHeight + boundary.top + boundary.height - diffTop - this.anchorPreview.offsetHeight;
+
+            this.anchorPreview.style.top = Math.round(top) + 'px';
             this.anchorPreview.style.right = 'initial';
             if (middleBoundary < halfOffsetWidth) {
                 this.anchorPreview.style.left = defaultLeft + halfOffsetWidth + 'px';
                 this.anchorPreview.style.right = 'initial';
-            } else if ((this.window.innerWidth - middleBoundary) < halfOffsetWidth) {
+            } else if ((containerWidth - middleBoundary) < halfOffsetWidth) {
                 this.anchorPreview.style.left = 'auto';
                 this.anchorPreview.style.right = 0;
             } else {
@@ -125,6 +162,15 @@
 
         attachToEditables: function () {
             this.subscribe('editableMouseover', this.handleEditableMouseover.bind(this));
+            this.subscribe('positionedToolbar', this.handlePositionedToolbar.bind(this));
+        },
+
+        handlePositionedToolbar: function () {
+            // If the toolbar is visible and positioned, we don't need to hide the preview
+            // when showWhenToolbarIsVisible is true
+            if (!this.showWhenToolbarIsVisible) {
+                this.hidePreview();
+            }
         },
 
         handleClick: function (event) {
@@ -141,7 +187,7 @@
                 this.base.delay(function () {
                     if (activeAnchor) {
                         var opts = {
-                            url: activeAnchor.attributes.href.value,
+                            value: activeAnchor.attributes.href.value,
                             target: activeAnchor.getAttribute('target'),
                             buttonClass: activeAnchor.getAttribute('class')
                         };
@@ -170,7 +216,8 @@
             // Detect empty href attributes
             // The browser will make href="" or href="#top"
             // into absolute urls when accessed as event.target.href, so check the html
-            if (!/href=["']\S+["']/.test(target.outerHTML) || /href=["']#\S+["']/.test(target.outerHTML)) {
+            if (!this.showOnEmptyLinks &&
+                (!/href=["']\S+["']/.test(target.outerHTML) || /href=["']#\S+["']/.test(target.outerHTML))) {
                 return true;
             }
 

@@ -96,7 +96,18 @@ describe('MediumEditor.extensions.toolbar TestCase', function () {
             selectElementContentsAndFire(this.el);
 
             expect(callback).toHaveBeenCalledWith({}, this.el);
+        });
 
+        it('should trigger positionedToolbar custom event when toolbar is moved', function () {
+            var editor = this.newMediumEditor('.editor'),
+                callback = jasmine.createSpy();
+
+            this.el.innerHTML = 'specOnUpdateToolbarTest';
+            editor.subscribe('positionedToolbar', callback);
+
+            selectElementContentsAndFire(this.el);
+
+            expect(callback).toHaveBeenCalledWith({}, this.el);
         });
 
         it('should trigger positionToolbar before setToolbarPosition is called', function () {
@@ -126,6 +137,29 @@ describe('MediumEditor.extensions.toolbar TestCase', function () {
             spyOn(toolbar, 'setToolbarPosition').and.callThrough();
             spyOn(temp, 'update').and.callThrough();
             editor.subscribe('positionToolbar', temp.update);
+            selectElementContentsAndFire(this.el);
+            expect(temp.update).toHaveBeenCalled();
+            expect(toolbar.setToolbarPosition).toHaveBeenCalled();
+        });
+
+        it('should trigger positionedToolbar after setToolbarPosition and showToolbar is called', function () {
+            this.el.innerHTML = 'position sanity check';
+            var editor = this.newMediumEditor('.editor'),
+                toolbar = editor.getExtensionByName('toolbar'),
+                temp = {
+                    update: function () {
+                        expect(toolbar.setToolbarPosition).toHaveBeenCalled();
+                        expect(toolbar.showToolbar).toHaveBeenCalled();
+                    }
+                };
+
+            selectElementContents(this.el);
+            jasmine.clock().tick(1);
+
+            spyOn(toolbar, 'setToolbarPosition').and.callThrough();
+            spyOn(toolbar, 'showToolbar').and.callThrough();
+            spyOn(temp, 'update').and.callThrough();
+            editor.subscribe('positionedToolbar', temp.update);
             selectElementContentsAndFire(this.el);
             expect(temp.update).toHaveBeenCalled();
             expect(toolbar.setToolbarPosition).toHaveBeenCalled();
@@ -180,10 +214,10 @@ describe('MediumEditor.extensions.toolbar TestCase', function () {
                 el,
                 i;
 
-            this.el.textContent = '0';
+            this.el.textContent = '0. Lorem ipsum dolor sit amet';
             for (i = 1; i < 3; i += 1) {
                 el = this.createElement('div', 'editor');
-                el.textContent = i;
+                el.textContent = i + '. Lorem ipsum dolor sit amet';
             }
 
             expect(document.querySelectorAll('.editor').length).toBe(3);
@@ -298,7 +332,9 @@ describe('MediumEditor.extensions.toolbar TestCase', function () {
         it('should hide when selecting multiple paragraphs and the deprecated allowMultiParagraphSelection option is false', function () {
             this.el.innerHTML = '<p id="p-one">lorem ipsum</p><p id="p-two">lorem ipsum</p>';
             var editor = this.newMediumEditor('.editor', {
-                    allowMultiParagraphSelection: false
+                    toolbar: {
+                        allowMultiParagraphSelection: false
+                    }
                 }),
                 toolbar = editor.getExtensionByName('toolbar');
             selectElementContentsAndFire(document.getElementById('p-one'));
@@ -327,6 +363,30 @@ describe('MediumEditor.extensions.toolbar TestCase', function () {
             expect(toolbar.setToolbarPosition).toHaveBeenCalled();
             expect(toolbar.setToolbarButtonStates).toHaveBeenCalled();
             expect(toolbar.showAndUpdateToolbar).toHaveBeenCalled();
+        });
+
+        it('should correctly update position even if elementsContainer is absolute', function () {
+            var container = document.createElement('div'),
+                editor, toolbar;
+
+            container.style.position = 'absolute';
+            container.style.left = '200px';
+            container.style.top = '200px';
+            document.body.appendChild(container);
+
+            this.el.innerHTML = 'lorem';
+
+            editor = this.newMediumEditor('.editor', {
+                elementsContainer: container
+            });
+            toolbar = editor.getExtensionByName('toolbar').getToolbarElement();
+
+            selectElementContentsAndFire(this.el);
+            expect(toolbar.classList.contains('medium-editor-toolbar-active')).toBe(true);
+            expect(parseInt(toolbar.style.left, 10)).toBeLessThan(200);
+            expect(parseInt(toolbar.style.top, 10)).toBeLessThan(200);
+
+            document.body.removeChild(container);
         });
     });
 
@@ -675,11 +735,11 @@ describe('MediumEditor.extensions.toolbar TestCase', function () {
             window.document.body.appendChild(relativeContainer);
 
             var editor = this.newMediumEditor('.editor', {
-                  toolbar: {
-                      relativeContainer: document.getElementById('someRelativeDiv')
-                  }
-              }),
-              toolbarHTML = editor.getExtensionByName('toolbar').getToolbarElement().outerHTML;
+                toolbar: {
+                    relativeContainer: document.getElementById('someRelativeDiv')
+                }
+            }),
+            toolbarHTML = editor.getExtensionByName('toolbar').getToolbarElement().outerHTML;
 
             expect(document.getElementById('someRelativeDiv').innerHTML).toBe(toolbarHTML);
         });

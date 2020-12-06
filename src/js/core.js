@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+    var initialContent = {};
+
     // Event handlers that shouldn't be exposed externally
 
     function handleDisableExtraSpaces(event) {
@@ -22,7 +24,7 @@
             // if current text selection is empty OR previous sibling text is empty OR it is not a list
             if ((node && node.textContent.trim() === '' && node.nodeName.toLowerCase() !== 'li') ||
                 (node.previousElementSibling && node.previousElementSibling.nodeName.toLowerCase() !== 'br' &&
-                 node.previousElementSibling.textContent.trim() === '')) {
+                    node.previousElementSibling.textContent.trim() === '')) {
                 event.preventDefault();
             }
         }
@@ -58,12 +60,12 @@
             isHeader = /h\d/i;
 
         if (MediumEditor.util.isKey(event, [MediumEditor.util.keyCode.BACKSPACE, MediumEditor.util.keyCode.ENTER]) &&
-                // has a preceeding sibling
-                node.previousElementSibling &&
-                // in a header
-                isHeader.test(tagName) &&
-                // at the very end of the block
-                MediumEditor.selection.getCaretOffsets(node).left === 0) {
+            // has a preceeding sibling
+            node.previousElementSibling &&
+            // in a header
+            isHeader.test(tagName) &&
+            // at the very end of the block
+            MediumEditor.selection.getCaretOffsets(node).left === 0) {
             if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.BACKSPACE) && isEmpty.test(node.previousElementSibling.innerHTML)) {
                 // backspacing the begining of a header into an empty previous element will
                 // change the tagName of the current node to prevent one
@@ -79,15 +81,15 @@
                 event.preventDefault();
             }
         } else if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.DELETE) &&
-                    // between two sibling elements
-                    node.nextElementSibling &&
-                    node.previousElementSibling &&
-                    // not in a header
-                    !isHeader.test(tagName) &&
-                    // in an empty tag
-                    isEmpty.test(node.innerHTML) &&
-                    // when the next tag *is* a header
-                    isHeader.test(node.nextElementSibling.nodeName.toLowerCase())) {
+            // between two sibling elements
+            node.nextElementSibling &&
+            node.previousElementSibling &&
+            // not in a header
+            !isHeader.test(tagName) &&
+            // in an empty tag
+            isEmpty.test(node.innerHTML) &&
+            // when the next tag *is* a header
+            isHeader.test(node.nextElementSibling.nodeName.toLowerCase())) {
             // hitting delete in an empty element preceding a header, ex:
             //  <p>[CURSOR]</p><h1>Header</h1>
             // Will cause the h1 to become a paragraph.
@@ -100,16 +102,16 @@
 
             event.preventDefault();
         } else if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.BACKSPACE) &&
-                tagName === 'li' &&
-                // hitting backspace inside an empty li
-                isEmpty.test(node.innerHTML) &&
-                // is first element (no preceeding siblings)
-                !node.previousElementSibling &&
-                // parent also does not have a sibling
-                !node.parentElement.previousElementSibling &&
-                // is not the only li in a list
-                node.nextElementSibling &&
-                node.nextElementSibling.nodeName.toLowerCase() === 'li') {
+            tagName === 'li' &&
+            // hitting backspace inside an empty li
+            isEmpty.test(node.innerHTML) &&
+            // is first element (no preceeding siblings)
+            !node.previousElementSibling &&
+            // parent also does not have a sibling
+            !node.parentElement.previousElementSibling &&
+            // is not the only li in a list
+            node.nextElementSibling &&
+            node.nextElementSibling.nodeName.toLowerCase() === 'li') {
             // backspacing in an empty first list element in the first list (with more elements) ex:
             //  <ul><li>[CURSOR]</li><li>List Item 2</li></ul>
             // will remove the first <li> but add some extra element before (varies based on browser)
@@ -131,13 +133,38 @@
 
             event.preventDefault();
         } else if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.BACKSPACE) &&
-                (MediumEditor.util.getClosestTag(node, 'blockquote') !== false) &&
-                MediumEditor.selection.getCaretOffsets(node).left === 0) {
+            (MediumEditor.util.getClosestTag(node, 'blockquote') !== false) &&
+            MediumEditor.selection.getCaretOffsets(node).left === 0) {
 
             // when cursor is at the begining of the element and the element is <blockquote>
             // then pressing backspace key should change the <blockquote> to a <p> tag
             event.preventDefault();
             MediumEditor.util.execFormatBlock(this.options.ownerDocument, 'p');
+        } else if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.ENTER) &&
+            (MediumEditor.util.getClosestTag(node, 'blockquote') !== false) &&
+            MediumEditor.selection.getCaretOffsets(node).right === 0) {
+
+            // when cursor is at the end of <blockquote>,
+            // then pressing enter key should create <p> tag, not <blockquote>
+            p = this.options.ownerDocument.createElement('p');
+            p.innerHTML = '<br>';
+            node.parentElement.insertBefore(p, node.nextSibling);
+
+            // move the cursor into the new paragraph
+            MediumEditor.selection.moveCursor(this.options.ownerDocument, p);
+
+            event.preventDefault();
+        } else if (MediumEditor.util.isKey(event, MediumEditor.util.keyCode.BACKSPACE) &&
+            MediumEditor.util.isMediumEditorElement(node.parentElement) &&
+            !node.previousElementSibling &&
+            node.nextElementSibling &&
+            isEmpty.test(node.innerHTML)) {
+
+            // when cursor is in the first element, it's empty and user presses backspace,
+            // do delete action instead to get rid of the first element and move caret to 2nd
+            event.preventDefault();
+            MediumEditor.selection.moveCursor(this.options.ownerDocument, node.nextSibling);
+            node.parentElement.removeChild(node);
         }
     }
 
@@ -149,8 +176,16 @@
             return;
         }
 
-        if (MediumEditor.util.isMediumEditorElement(node) && node.children.length === 0) {
+        // https://github.com/yabwe/medium-editor/issues/994
+        // Firefox thrown an error when calling `formatBlock` on an empty editable blockContainer that's not a <div>
+        if (MediumEditor.util.isMediumEditorElement(node) && node.children.length === 0 && !MediumEditor.util.isBlockContainer(node)) {
             this.options.ownerDocument.execCommand('formatBlock', false, 'p');
+        }
+
+        // https://github.com/yabwe/medium-editor/issues/1455
+        // if somehow we have the BR as the selected element, typing does nothing, so move the cursor
+        if (node.nodeName === 'BR') {
+            MediumEditor.selection.moveCursor(this.options.ownerDocument, node.parentElement);
         }
 
         // https://github.com/yabwe/medium-editor/issues/834
@@ -166,7 +201,22 @@
                 this.options.ownerDocument.execCommand('unlink', false, null);
             } else if (!event.shiftKey && !event.ctrlKey) {
                 this.options.ownerDocument.execCommand('formatBlock', false, 'p');
+                // https://github.com/yabwe/medium-editor/issues/1455
+                // firefox puts the focus on the br - so we need to move the cursor to the newly created p
+                if (MediumEditor.util.isFF) {
+                    var newParagraph = node.querySelector('p');
+                    if (newParagraph) {
+                        MediumEditor.selection.moveCursor(this.options.ownerDocument, newParagraph);
+                    }
+                }
             }
+        }
+    }
+
+    function handleEditableInput(event, editable) {
+        var textarea = editable.parentNode.querySelector('textarea[medium-editor-textarea-id="' + editable.getAttribute('medium-editor-textarea-id') + '"]');
+        if (textarea) {
+            textarea.value = editable.innerHTML.trim();
         }
     }
 
@@ -203,30 +253,50 @@
         win._mediumEditors[this.id] = null;
     }
 
-    function createElementsArray(selector) {
+    function createElementsArray(selector, doc, filterEditorElements) {
+        var elements = [];
+
         if (!selector) {
             selector = [];
         }
         // If string, use as query selector
         if (typeof selector === 'string') {
-            selector = this.options.ownerDocument.querySelectorAll(selector);
+            selector = doc.querySelectorAll(selector);
         }
         // If element, put into array
         if (MediumEditor.util.isElement(selector)) {
             selector = [selector];
         }
-        // Convert NodeList (or other array like object) into an array
-        var elements = Array.prototype.slice.apply(selector);
 
-        // Loop through elements and convert textarea's into divs
-        this.elements = [];
-        elements.forEach(function (element, index) {
-            if (element.nodeName.toLowerCase() === 'textarea') {
-                this.elements.push(createContentEditable.call(this, element, index));
-            } else {
-                this.elements.push(element);
+        if (filterEditorElements) {
+            // Remove elements that have already been initialized by the editor
+            // selecotr might not be an array (ie NodeList) so use for loop
+            for (var i = 0; i < selector.length; i++) {
+                var el = selector[i];
+                if (MediumEditor.util.isElement(el) &&
+                    !el.getAttribute('data-medium-editor-element') &&
+                    !el.getAttribute('medium-editor-textarea-id')) {
+                    elements.push(el);
+                }
             }
-        }, this);
+        } else {
+            // Convert NodeList (or other array like object) into an array
+            elements = Array.prototype.slice.apply(selector);
+        }
+
+        return elements;
+    }
+
+    function cleanupTextareaElement(element) {
+        var textarea = element.parentNode.querySelector('textarea[medium-editor-textarea-id="' + element.getAttribute('medium-editor-textarea-id') + '"]');
+        if (textarea) {
+            // Un-hide the textarea
+            textarea.classList.remove('medium-editor-hidden');
+            textarea.removeAttribute('medium-editor-textarea-id');
+        }
+        if (element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
     }
 
     function setExtensionDefaults(extension, defaults) {
@@ -264,8 +334,8 @@
         // If any of the elements don't have the toolbar disabled
         // We need a toolbar
         if (this.elements.every(function (element) {
-                return !!element.getAttribute('data-disable-toolbar');
-            })) {
+            return !!element.getAttribute('data-disable-toolbar');
+        })) {
             return false;
         }
 
@@ -304,17 +374,17 @@
         return !this.options.extensions['imageDragging'];
     }
 
-    function createContentEditable(textarea, id) {
+    function createContentEditable(textarea) {
         var div = this.options.ownerDocument.createElement('div'),
             now = Date.now(),
-            uniqueId = 'medium-editor-' + now + '-' + id,
+            uniqueId = 'medium-editor-' + now,
             atts = textarea.attributes;
 
         // Some browsers can move pretty fast, since we're using a timestamp
         // to make a unique-id, ensure that the id is actually unique on the page
         while (this.options.ownerDocument.getElementById(uniqueId)) {
             now++;
-            uniqueId = 'medium-editor-' + now + '-' + id;
+            uniqueId = 'medium-editor-' + now;
         }
 
         div.className = textarea.className;
@@ -327,8 +397,18 @@
         for (var i = 0, n = atts.length; i < n; i++) {
             // do not re-create existing attributes
             if (!div.hasAttribute(atts[i].nodeName)) {
-                div.setAttribute(atts[i].nodeName, atts[i].nodeValue);
+                div.setAttribute(atts[i].nodeName, atts[i].value);
             }
+        }
+
+        // If textarea has a form, listen for reset on the form to clear
+        // the content of the created div
+        if (textarea.form) {
+            this.on(textarea.form, 'reset', function (event) {
+                if (!event.defaultPrevented) {
+                    this.resetContent(this.options.ownerDocument.getElementById(uniqueId));
+                }
+            }.bind(this));
         }
 
         textarea.classList.add('medium-editor-hidden');
@@ -340,37 +420,57 @@
         return div;
     }
 
-    function initElements() {
-        var isTextareaUsed = false;
+    function initElement(element, editorId) {
+        if (!element.getAttribute('data-medium-editor-element')) {
+            if (element.nodeName.toLowerCase() === 'textarea') {
+                element = createContentEditable.call(this, element);
 
-        this.elements.forEach(function (element, index) {
+                // Make sure we only attach to editableInput once for <textarea> elements
+                if (!this.instanceHandleEditableInput) {
+                    this.instanceHandleEditableInput = handleEditableInput.bind(this);
+                    this.subscribe('editableInput', this.instanceHandleEditableInput);
+                }
+            }
+
             if (!this.options.disableEditing && !element.getAttribute('data-disable-editing')) {
                 element.setAttribute('contentEditable', true);
                 element.setAttribute('spellcheck', this.options.spellcheck);
             }
+
+            // Make sure we only attach to editableKeydownEnter once for disable-return options
+            if (!this.instanceHandleEditableKeydownEnter) {
+                if (element.getAttribute('data-disable-return') || element.getAttribute('data-disable-double-return')) {
+                    this.instanceHandleEditableKeydownEnter = handleDisabledEnterKeydown.bind(this);
+                    this.subscribe('editableKeydownEnter', this.instanceHandleEditableKeydownEnter);
+                }
+            }
+
+            // if we're not disabling return, add a handler to help handle cleanup
+            // for certain cases when enter is pressed
+            if (!this.options.disableReturn && !element.getAttribute('data-disable-return')) {
+                this.on(element, 'keyup', handleKeyup.bind(this));
+            }
+
+            var elementId = MediumEditor.util.guid();
+
             element.setAttribute('data-medium-editor-element', true);
+            element.classList.add('medium-editor-element');
             element.setAttribute('role', 'textbox');
             element.setAttribute('aria-multiline', true);
-            element.setAttribute('medium-editor-index', index);
+            element.setAttribute('data-medium-editor-editor-index', editorId);
+            // TODO: Merge data-medium-editor-element and medium-editor-index attributes for 6.0.0
+            // medium-editor-index is not named correctly anymore and can be re-purposed to signify
+            // whether the element has been initialized or not
+            element.setAttribute('medium-editor-index', elementId);
+            initialContent[elementId] = element.innerHTML;
 
-            if (element.hasAttribute('medium-editor-textarea-id')) {
-                isTextareaUsed = true;
-            }
-        }, this);
-
-        if (isTextareaUsed) {
-            this.subscribe('editableInput', function (event, editable) {
-                var textarea = editable.parentNode.querySelector('textarea[medium-editor-textarea-id="' + editable.getAttribute('medium-editor-textarea-id') + '"]');
-                if (textarea) {
-                    textarea.value = this.serialize()[editable.id].value;
-                }
-            }.bind(this));
+            this.events.attachAllEventsToElement(element);
         }
+
+        return element;
     }
 
     function attachHandlers() {
-        var i;
-
         // attach to tabs
         this.subscribe('editableKeydownTab', handleTabKeydown.bind(this));
 
@@ -383,26 +483,13 @@
             this.subscribe('editableKeydownSpace', handleDisableExtraSpaces.bind(this));
         }
 
-        // disabling return or double return
-        if (this.options.disableReturn || this.options.disableDoubleReturn) {
-            this.subscribe('editableKeydownEnter', handleDisabledEnterKeydown.bind(this));
-        } else {
-            for (i = 0; i < this.elements.length; i += 1) {
-                if (this.elements[i].getAttribute('data-disable-return') || this.elements[i].getAttribute('data-disable-double-return')) {
-                    this.subscribe('editableKeydownEnter', handleDisabledEnterKeydown.bind(this));
-                    break;
-                }
+        // Make sure we only attach to editableKeydownEnter once for disable-return options
+        if (!this.instanceHandleEditableKeydownEnter) {
+            // disabling return or double return
+            if (this.options.disableReturn || this.options.disableDoubleReturn) {
+                this.instanceHandleEditableKeydownEnter = handleDisabledEnterKeydown.bind(this);
+                this.subscribe('editableKeydownEnter', this.instanceHandleEditableKeydownEnter);
             }
-        }
-
-        // if we're not disabling return, add a handler to help handle cleanup
-        // for certain cases when enter is pressed
-        if (!this.options.disableReturn) {
-            this.elements.forEach(function (element) {
-                if (!element.getAttribute('data-disable-return')) {
-                    this.on(element, 'keyup', handleKeyup.bind(this));
-                }
-            }, this);
         }
     }
 
@@ -495,7 +582,8 @@
         /*jslint regexp: true*/
         var appendAction = /^append-(.+)$/gi,
             justifyAction = /justify([A-Za-z]*)$/g, /* Detecting if is justifyCenter|Right|Left */
-            match;
+            match,
+            cmdValueArgument;
         /*jslint regexp: false*/
 
         // Actions starting with 'append-' should attempt to format a block of text ('formatBlock') using a specific
@@ -506,11 +594,21 @@
         }
 
         if (action === 'fontSize') {
-            return this.options.ownerDocument.execCommand('fontSize', false, opts.size);
+            // TODO: Deprecate support for opts.size in 6.0.0
+            if (opts.size) {
+                MediumEditor.util.deprecated('.size option for fontSize command', '.value', '6.0.0');
+            }
+            cmdValueArgument = opts.value || opts.size;
+            return this.options.ownerDocument.execCommand('fontSize', false, cmdValueArgument);
         }
 
         if (action === 'fontName') {
-            return this.options.ownerDocument.execCommand('fontName', false, opts.name);
+            // TODO: Deprecate support for opts.name in 6.0.0
+            if (opts.name) {
+                MediumEditor.util.deprecated('.name option for fontName command', '.value', '6.0.0');
+            }
+            cmdValueArgument = opts.value || opts.name;
+            return this.options.ownerDocument.execCommand('fontName', false, cmdValueArgument);
         }
 
         if (action === 'createLink') {
@@ -520,6 +618,11 @@
         if (action === 'image') {
             var src = this.options.contentWindow.getSelection().toString().trim();
             return this.options.ownerDocument.execCommand('insertImage', false, src);
+        }
+
+        if (action === 'html') {
+            var html = this.options.contentWindow.getSelection().toString().trim();
+            return MediumEditor.util.insertHTMLCommand(this.options.ownerDocument, html);
         }
 
         /* Issue: https://github.com/yabwe/medium-editor/issues/595
@@ -534,7 +637,8 @@
             return result;
         }
 
-        return this.options.ownerDocument.execCommand(action, false, null);
+        cmdValueArgument = opts && opts.value;
+        return this.options.ownerDocument.execCommand(action, false, cmdValueArgument);
     }
 
     /* If we've just justified text within a container block
@@ -600,19 +704,19 @@
                 return;
             }
 
-            createElementsArray.call(this, this.origElements);
+            addToEditors.call(this, this.options.contentWindow);
+            this.events = new MediumEditor.Events(this);
+            this.elements = [];
+
+            this.addElements(this.origElements);
 
             if (this.elements.length === 0) {
                 return;
             }
 
             this.isActive = true;
-            addToEditors.call(this, this.options.contentWindow);
-
-            this.events = new MediumEditor.Events(this);
 
             // Call initialization helpers
-            initElements.call(this);
             initExtensions.call(this);
             attachHandlers.call(this);
         },
@@ -642,45 +746,52 @@
                 element.removeAttribute('contentEditable');
                 element.removeAttribute('spellcheck');
                 element.removeAttribute('data-medium-editor-element');
+                element.classList.remove('medium-editor-element');
                 element.removeAttribute('role');
                 element.removeAttribute('aria-multiline');
                 element.removeAttribute('medium-editor-index');
+                element.removeAttribute('data-medium-editor-editor-index');
 
                 // Remove any elements created for textareas
-                if (element.hasAttribute('medium-editor-textarea-id')) {
-                    var textarea = element.parentNode.querySelector('textarea[medium-editor-textarea-id="' + element.getAttribute('medium-editor-textarea-id') + '"]');
-                    if (textarea) {
-                        // Un-hide the textarea
-                        textarea.classList.remove('medium-editor-hidden');
-                    }
-                    if (element.parentNode) {
-                        element.parentNode.removeChild(element);
-                    }
+                if (element.getAttribute('medium-editor-textarea-id')) {
+                    cleanupTextareaElement(element);
                 }
             }, this);
             this.elements = [];
+            this.instanceHandleEditableKeydownEnter = null;
+            this.instanceHandleEditableInput = null;
 
             removeFromEditors.call(this, this.options.contentWindow);
         },
 
         on: function (target, event, listener, useCapture) {
             this.events.attachDOMEvent(target, event, listener, useCapture);
+
+            return this;
         },
 
         off: function (target, event, listener, useCapture) {
             this.events.detachDOMEvent(target, event, listener, useCapture);
+
+            return this;
         },
 
         subscribe: function (event, listener) {
             this.events.attachCustomEvent(event, listener);
+
+            return this;
         },
 
         unsubscribe: function (event, listener) {
             this.events.detachCustomEvent(event, listener);
+
+            return this;
         },
 
         trigger: function (name, data, editable) {
             this.events.triggerCustomEvent(name, data, editable);
+
+            return this;
         },
 
         delay: function (fn) {
@@ -695,8 +806,10 @@
         serialize: function () {
             var i,
                 elementid,
-                content = {};
-            for (i = 0; i < this.elements.length; i += 1) {
+                content = {},
+                len = this.elements.length;
+
+            for (i = 0; i < len; i += 1) {
                 elementid = (this.elements[i].id !== '') ? this.elements[i].id : 'element-' + i;
                 content[elementid] = {
                     value: this.elements[i].innerHTML.trim()
@@ -843,13 +956,23 @@
                 MediumEditor.util.cleanListDOM(this.options.ownerDocument, this.getSelectedParentElement());
             }
 
+            // https://github.com/yabwe/medium-editor/issues/1496
+            // But only if something is selected i.e, getSelectedParentElement !== {}
+            if (this.getSelectedParentElement().length > 0 && MediumEditor.util.isFF) {
+                MediumEditor.util.getContainerEditorElement(this.getSelectedParentElement()).focus();
+            }
+
             this.checkSelection();
             return result;
         },
 
         getSelectedParentElement: function (range) {
             if (range === undefined) {
-                range = this.options.contentWindow.getSelection().getRangeAt(0);
+                try {
+                    range = this.options.contentWindow.getSelection().getRangeAt(0);
+                } catch (err) {
+                    return {};
+                }
             }
             return MediumEditor.selection.getSelectedParentElement(range);
         },
@@ -930,7 +1053,8 @@
 
         createLink: function (opts) {
             var currentEditor = MediumEditor.selection.getSelectionElement(this.options.contentWindow),
-                customEvent = {};
+                customEvent = {},
+                targetUrl;
 
             // Make sure the selection is within an element this editor is tracking
             if (this.elements.indexOf(currentEditor) === -1) {
@@ -939,7 +1063,12 @@
 
             try {
                 this.events.disableCustomEvent('editableInput');
-                if (opts.url && opts.url.trim().length > 0) {
+                // TODO: Deprecate support for opts.url in 6.0.0
+                if (opts.url) {
+                    MediumEditor.util.deprecated('.url option for createLink', '.value', '6.0.0');
+                }
+                targetUrl = opts.url || opts.value;
+                if (targetUrl && targetUrl.trim().length > 0) {
                     var currentSelection = this.options.contentWindow.getSelection();
                     if (currentSelection) {
                         var currRange = currentSelection.getRangeAt(0),
@@ -998,7 +1127,7 @@
                                     0,
                                     parentElement.lastChild,
                                     parentElement.lastChild.nodeType === 3 ?
-                                    parentElement.lastChild.nodeValue.length : parentElement.lastChild.childNodes.length
+                                        parentElement.lastChild.nodeValue.length : parentElement.lastChild.childNodes.length
                                 );
                             } else {
                                 MediumEditor.selection.select(
@@ -1031,7 +1160,7 @@
                             }
 
                             // Creates the link in the document fragment
-                            MediumEditor.util.createLink(this.options.ownerDocument, textNodes, opts.url.trim());
+                            MediumEditor.util.createLink(this.options.ownerDocument, textNodes, targetUrl.trim());
 
                             // Chrome trims the leading whitespaces when inserting HTML, which messes up restoring the selection.
                             var leadingWhitespacesCount = (fragment.firstChild.innerHTML.match(/^\s+/) || [''])[0].length;
@@ -1043,13 +1172,13 @@
 
                             this.importSelection(exportedSelection);
                         } else {
-                            this.options.ownerDocument.execCommand('createLink', false, opts.url);
+                            this.options.ownerDocument.execCommand('createLink', false, targetUrl);
                         }
 
                         if (this.options.targetBlank || opts.target === '_blank') {
-                            MediumEditor.util.setTargetBlank(MediumEditor.selection.getSelectionStart(this.options.ownerDocument), opts.url);
+                            MediumEditor.util.setTargetBlank(MediumEditor.selection.getSelectionStart(this.options.ownerDocument), targetUrl);
                         } else {
-                            MediumEditor.util.removeTargetBlank(MediumEditor.selection.getSelectionStart(this.options.ownerDocument), opts.url);
+                            MediumEditor.util.removeTargetBlank(MediumEditor.selection.getSelectionStart(this.options.ownerDocument), targetUrl);
                         }
 
                         if (opts.buttonClass) {
@@ -1061,7 +1190,7 @@
                 if (this.options.targetBlank || opts.target === '_blank' || opts.buttonClass) {
                     customEvent = this.options.ownerDocument.createEvent('HTMLEvents');
                     customEvent.initEvent('input', true, true, this.options.contentWindow);
-                    for (var i = 0; i < this.elements.length; i += 1) {
+                    for (var i = 0, len = this.elements.length; i < len; i += 1) {
                         this.elements[i].dispatchEvent(customEvent);
                     }
                 }
@@ -1086,8 +1215,97 @@
             if (this.elements[index]) {
                 var target = this.elements[index];
                 target.innerHTML = html;
-                this.events.updateInput(target, { target: target, currentTarget: target });
+                this.checkContentChanged(target);
             }
+        },
+
+        getContent: function (index) {
+            index = index || 0;
+
+            if (this.elements[index]) {
+                return this.elements[index].innerHTML.trim();
+            }
+            return null;
+        },
+
+        checkContentChanged: function (editable) {
+            editable = editable || MediumEditor.selection.getSelectionElement(this.options.contentWindow);
+            this.events.updateInput(editable, { target: editable, currentTarget: editable });
+        },
+
+        resetContent: function (element) {
+            // For all elements that exist in the this.elements array, we can assume:
+            // - Its initial content has been set in the initialContent object
+            // - It has a medium-editor-index attribute which is the key value in the initialContent object
+
+            if (element) {
+                var index = this.elements.indexOf(element);
+                if (index !== -1) {
+                    this.setContent(initialContent[element.getAttribute('medium-editor-index')], index);
+                }
+                return;
+            }
+
+            this.elements.forEach(function (el, idx) {
+                this.setContent(initialContent[el.getAttribute('medium-editor-index')], idx);
+            }, this);
+        },
+
+        addElements: function (selector) {
+            // Convert elements into an array
+            var elements = createElementsArray(selector, this.options.ownerDocument, true);
+
+            // Do we have elements to add now?
+            if (elements.length === 0) {
+                return false;
+            }
+
+            elements.forEach(function (element) {
+                // Initialize all new elements (we check that in those functions don't worry)
+                element = initElement.call(this, element, this.id);
+
+                // Add new elements to our internal elements array
+                this.elements.push(element);
+
+                // Trigger event so extensions can know when an element has been added
+                this.trigger('addElement', { target: element, currentTarget: element }, element);
+            }, this);
+        },
+
+        removeElements: function (selector) {
+            // Convert elements into an array
+            var elements = createElementsArray(selector, this.options.ownerDocument),
+                toRemove = elements.map(function (el) {
+                    // For textareas, make sure we're looking at the editor div and not the textarea itself
+                    if (el.getAttribute('medium-editor-textarea-id') && el.parentNode) {
+                        return el.parentNode.querySelector('div[medium-editor-textarea-id="' + el.getAttribute('medium-editor-textarea-id') + '"]');
+                    } else {
+                        return el;
+                    }
+                });
+
+            this.elements = this.elements.filter(function (element) {
+                // If this is an element we want to remove
+                if (toRemove.indexOf(element) !== -1) {
+                    this.events.cleanupElement(element);
+                    if (element.getAttribute('medium-editor-textarea-id')) {
+                        cleanupTextareaElement(element);
+                    }
+                    // Trigger event so extensions can clean-up elements that are being removed
+                    this.trigger('removeElement', { target: element, currentTarget: element }, element);
+                    return false;
+                }
+                return true;
+            }, this);
         }
+    };
+
+    MediumEditor.getEditorFromElement = function (element) {
+        var index = element.getAttribute('data-medium-editor-editor-index'),
+            win = element && element.ownerDocument && (element.ownerDocument.defaultView || element.ownerDocument.parentWindow);
+        if (win && win._mediumEditors && win._mediumEditors[index]) {
+            return win._mediumEditors[index];
+        }
+        return null;
     };
 }());

@@ -189,6 +189,10 @@
 
         // Toolbar accessors
 
+        getInteractionElements: function () {
+            return this.getToolbarElement();
+        },
+
         getToolbarElement: function () {
             if (!this.toolbar) {
                 this.toolbar = this.createToolbar();
@@ -514,30 +518,26 @@
 
         setToolbarPosition: function () {
             var container = this.base.getFocusedElement(),
-                selection = this.window.getSelection(),
-                anchorPreview;
+                selection = this.window.getSelection();
 
             // If there isn't a valid selection, bail
             if (!container) {
                 return this;
             }
 
-            if (this.static && !this.relativeContainer) {
-                this.showToolbar();
-                this.positionStaticToolbar(container);
-            } else if (!selection.isCollapsed) {
+            if (this.static || !selection.isCollapsed) {
                 this.showToolbar();
 
                 // we don't need any absolute positioning if relativeContainer is set
                 if (!this.relativeContainer) {
-                    this.positionToolbar(selection);
+                    if (this.static) {
+                        this.positionStaticToolbar(container);
+                    } else {
+                        this.positionToolbar(selection);
+                    }
                 }
-            }
 
-            anchorPreview = this.base.getExtensionByName('anchor-preview');
-
-            if (anchorPreview && typeof anchorPreview.hidePreview === 'function') {
-                anchorPreview.hidePreview();
+                this.trigger('positionedToolbar', {}, this.base.getFocusedElement());
             }
         },
 
@@ -616,35 +616,66 @@
                 }
             }
 
-            var windowWidth = this.window.innerWidth,
-                middleBoundary = (boundary.left + boundary.right) / 2,
+            var containerWidth = this.window.innerWidth,
                 toolbarElement = this.getToolbarElement(),
                 toolbarHeight = toolbarElement.offsetHeight,
                 toolbarWidth = toolbarElement.offsetWidth,
                 halfOffsetWidth = toolbarWidth / 2,
                 buttonHeight = 50,
-                defaultLeft = this.diffLeft - halfOffsetWidth;
+                defaultLeft = this.diffLeft - halfOffsetWidth,
+                elementsContainer = this.getEditorOption('elementsContainer'),
+                elementsContainerAbsolute = ['absolute', 'fixed'].indexOf(window.getComputedStyle(elementsContainer).getPropertyValue('position')) > -1,
+                positions = {},
+                relativeBoundary = {},
+                middleBoundary, elementsContainerBoundary;
+
+            // If container element is absolute / fixed, recalculate boundaries to be relative to the container
+            if (elementsContainerAbsolute) {
+                elementsContainerBoundary = elementsContainer.getBoundingClientRect();
+                ['top', 'left'].forEach(function (key) {
+                    relativeBoundary[key] = boundary[key] - elementsContainerBoundary[key];
+                });
+
+                relativeBoundary.width = boundary.width;
+                relativeBoundary.height = boundary.height;
+                boundary = relativeBoundary;
+
+                containerWidth = elementsContainerBoundary.width;
+
+                // Adjust top position according to container scroll position
+                positions.top = elementsContainer.scrollTop;
+            } else {
+                // Adjust top position according to window scroll position
+                positions.top = this.window.pageYOffset;
+            }
+
+            middleBoundary = boundary.left + boundary.width / 2;
+            positions.top += boundary.top - toolbarHeight;
 
             if (boundary.top < buttonHeight) {
                 toolbarElement.classList.add('medium-toolbar-arrow-over');
                 toolbarElement.classList.remove('medium-toolbar-arrow-under');
-                toolbarElement.style.top = buttonHeight + boundary.bottom - this.diffTop + this.window.pageYOffset - toolbarHeight + 'px';
+                positions.top += buttonHeight + boundary.height - this.diffTop;
             } else {
                 toolbarElement.classList.add('medium-toolbar-arrow-under');
                 toolbarElement.classList.remove('medium-toolbar-arrow-over');
-                toolbarElement.style.top = boundary.top + this.diffTop + this.window.pageYOffset - toolbarHeight + 'px';
+                positions.top += this.diffTop;
             }
 
             if (middleBoundary < halfOffsetWidth) {
-                toolbarElement.style.left = defaultLeft + halfOffsetWidth + 'px';
-                toolbarElement.style.right = 'initial';
-            } else if ((windowWidth - middleBoundary) < halfOffsetWidth) {
-                toolbarElement.style.left = 'auto';
-                toolbarElement.style.right = 0;
+                positions.left = defaultLeft + halfOffsetWidth;
+                positions.right = 'initial';
+            } else if ((containerWidth - middleBoundary) < halfOffsetWidth) {
+                positions.left = 'auto';
+                positions.right = 0;
             } else {
-                toolbarElement.style.left = defaultLeft + middleBoundary + 'px';
-                toolbarElement.style.right = 'initial';
+                positions.left = defaultLeft + middleBoundary;
+                positions.right = 'initial';
             }
+
+            ['top', 'left', 'right'].forEach(function (key) {
+                toolbarElement.style[key] = positions[key] + (isNaN(positions[key]) ? '' : 'px');
+            });
         }
     });
 
